@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>测试用：我的交互式可视化作业</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>数据集标题：探索 XXX 模式</h1>
+        </header>
+
+        <section id="controls">
+            <label>筛选维度：</label>
+            <select id="data-filter">
+                <option value="all">全部</option>
+            </select>
+        </section>
+
+        <main id="viz-container">
+            <svg id="mainsvg"></svg>
+        </main>
+
+        <footer>
+            <a href="docs/design.html">查看设计说明文档</a>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
