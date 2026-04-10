@@ -1,33 +1,69 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>测试用：我的交互式可视化作业</title>
+    <title>费城美食地图</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
-    <div id="app">
-        <header>
-            <h1>数据集标题：探索 XXX 模式</h1>
-        </header>
-
-        <section id="controls">
-            <label>筛选维度：</label>
-            <select id="data-filter">
-                <option value="all">全部</option>
+    <nav id="filter-module">
+        <div class="filter-group">
+            <i class="fa-solid fa-filter"></i>
+            <select id="price-filter">
+                <option value="all">价格（人均消费）</option>
+                <option value="1">$10 以下</option>
+                <option value="2">$11-30</option>
+                <option value="3">$31-60</option>
+                <option value="4">$61 以上</option>
             </select>
-        </section>
+        </div>
+        <button id="legend-toggle"><i class="fa-solid fa-circle-info"></i> 地图说明</button>
+    </nav>
 
-        <main id="viz-container">
-            <svg id="mainsvg"></svg>
-        </main>
+    <div id="container">
+        <aside id="sidebar">
+            <div id="sidebar-content">
+                <header>
+                    <h1>Philly Foodie</h1>
+                    <p>费城餐饮生态交互看板</p>
+                </header>
+                <hr>
+                <section id="details">
+                    <h3><i class="fa-solid fa-utensils"></i> 商户详情</h3>
+                    <div id="info-content">
+                        <p class="placeholder">点击地图圆点查看数据</p>
+                    </div>
+                </section>
+            </div>
+            <button id="close-sidebar"><i class="fa-solid fa-chevron-left"></i></button>
+        </aside>
 
-        <footer>
-            <a href="docs/design.html">查看设计说明文档</a>
-        </footer>
+        <button id="open-sidebar" class="hidden"><i class="fa-solid fa-bars"></i></button>
+
+        <main id="map"></main>
+
+        <div id="map-legend" class="modal hidden">
+            <div class="modal-content">
+                <h4>可视化含义说明</h4>
+                <ul>
+                    <li><span class="dot green"></span> <strong>绿色：</strong> 高分餐厅 (4.0 - 5.0 星)</li>
+                    <li><span class="dot yellow"></span> <strong>黄色：</strong> 中等评分 (3.0 - 3.5 星)</li>
+                    <li><span class="dot red"></span> <strong>红色：</strong> 评分较低 (低于 3.0 星)</li>
+                    <li><span class="dot gray"></span> <strong>圆圈大小：</strong> 代表评论数 (Review Count)，圆圈越大表示知名度/热度越高。</li>
+                </ul>
+                <button id="close-legend">确定</button>
+            </div>
+        </div>
+
+        <div id="data-source">
+            数据来源: <a href="https://www.yelp.com/dataset" target="_blank">Yelp Open Dataset</a>
+        </div>
     </div>
 
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
