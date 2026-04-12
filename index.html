@@ -4,41 +4,56 @@
     <meta charset="UTF-8">
     <title>费城美食地图</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <link rel="stylesheet" href="css/style.css">
+    
+    
 </head>
 <body>
     <nav id="filter-module">
+        <div class="search-group">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="search-input" placeholder="搜索餐厅名字或标签...">
+        </div>
+        
         <div class="filter-group">
             <i class="fa-solid fa-filter"></i>
             <select id="price-filter">
-                <option value="all">价格（人均消费）</option>
-                <option value="1">$10 以下</option>
-                <option value="2">$11-30</option>
-                <option value="3">$31-60</option>
-                <option value="4">$61 以上</option>
+                <option value="all">所有价格</option>
+                <option value="1">人均 $10 以下</option>
+                <option value="2">人均 $11-30</option>
+                <option value="3">人均 $31-60</option>
+                <option value="4">人均 $61 以上</option>
             </select>
         </div>
         <button id="legend-toggle"><i class="fa-solid fa-circle-info"></i> 地图说明</button>
     </nav>
 
     <div id="container">
-        <aside id="sidebar">
-            <div id="sidebar-content">
-                <header>
-                    <h1>Philly Foodie</h1>
-                    <p>费城餐饮生态交互看板</p>
-                </header>
-                <hr>
-                <section id="details">
-                    <h3><i class="fa-solid fa-utensils"></i> 商户详情</h3>
-                    <div id="info-content">
-                        <p class="placeholder">点击地图圆点查看数据</p>
+
+    <aside id="sidebar">
+        <div id="sidebar-content">
+            <header>
+                <h1>Philly Foodie</h1>
+                <p>费城餐饮生态看板</p>
+            </header>
+            <hr>
+            <section id="details">
+                <div id="info-content">
+                    <p class="placeholder">点击地图圆点查看数据</p>
+                </div>
+            </section>
+            
+            <section id="tag-explorer">
+                <h3><i class="fa-solid fa-tags"></i> 快速探索</h3>
+                <div id="tag-cloud">
                     </div>
-                </section>
-            </div>
-            <button id="close-sidebar"><i class="fa-solid fa-chevron-left"></i></button>
-        </aside>
+            </section>
+        </div>
+        <button id="close-sidebar"><i class="fa-solid fa-chevron-left"></i></button>
+    </aside>
 
         <button id="open-sidebar" class="hidden"><i class="fa-solid fa-bars"></i></button>
 
@@ -46,24 +61,48 @@
 
         <div id="map-legend" class="modal hidden">
             <div class="modal-content">
-                <h4>可视化含义说明</h4>
-                <ul>
-                    <li><span class="dot green"></span> <strong>绿色：</strong> 高分餐厅 (4.0 - 5.0 星)</li>
-                    <li><span class="dot yellow"></span> <strong>黄色：</strong> 中等评分 (3.0 - 3.5 星)</li>
-                    <li><span class="dot red"></span> <strong>红色：</strong> 评分较低 (低于 3.0 星)</li>
-                    <li><span class="dot gray"></span> <strong>圆圈大小：</strong> 代表评论数 (Review Count)，圆圈越大表示知名度/热度越高。</li>
-                </ul>
-                <button id="close-legend">确定</button>
+                <h4><i class="fa-solid fa-circle-info"></i> 可视化含义说明</h4>
+                
+                <div class="legend-group">
+                    <h5>1. 餐厅类型 (完整图标对照)</h5>
+                    <div class="legend-item"><i class="fa-solid fa-burger"></i> 汉堡/快餐</div>
+                    <div class="legend-item"><i class="fa-solid fa-pizza-slice"></i> 披萨</div>
+                    <div class="legend-item"><i class="fa-solid fa-utensils"></i> 亚洲菜/中餐</div>
+                    <div class="legend-item"><i class="fa-solid fa-mug-hot"></i> 咖啡/茶饮</div>
+                    <div class="legend-item"><i class="fa-solid fa-wine-glass"></i> 酒吧/夜生活</div>
+                    <div class="legend-item"><i class="fa-solid fa-ice-cream"></i> 甜品/烘焙/冰淇淋</div>
+                    <div class="legend-item"><i class="fa-solid fa-pepper-hot"></i> 墨西哥菜/Tacos</div>
+                    <div class="legend-item"><i class="fa-solid fa-egg"></i> 早餐/早午餐</div>
+                    <div class="legend-item"><i class="fa-solid fa-fish"></i> 海鲜</div>
+                    <div class="legend-item"><i class="fa-solid fa-utensils"></i> 其他</div>
+                </div>
+                
+                <div class="legend-group">
+                    <h5>2. 评分与热度 (颜色与大小)</h5>
+                    <div class="legend-scale"></div>
+                    <div class="legend-scale-labels">
+                        <span>低分 (1.0★)</span>
+                        <span>高分 (5.0★)</span>
+                    </div>
+                    <p class="hint-text">* 颜色按评分连续渐变：红 → 黄 → 绿</p>
+                    <p class="hint-text">* 图标外圈越大代表评论数越多</p>
+                </div>
+
+                <p class="hint-text">说明文档：<a href="md-viewer.html?file=%E8%AF%B4%E6%98%8E%E6%96%87%E6%A1%A3.md" target="_blank">查看完整说明文档</a></p>
+                
+                <button id="close-legend">关闭说明</button>
             </div>
         </div>
 
         <div id="data-source">
             数据来源: <a href="https://www.yelp.com/dataset" target="_blank">Yelp Open Dataset</a>
+            项目地址：<a href="https://github.com/AnonToky/Philly-Foodie" target="_blank">GitHub 仓库</a>
         </div>
     </div>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

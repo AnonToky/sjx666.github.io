@@ -8,6 +8,24 @@ let map;
 let markerLayer; // 用于存放地图上的圆点，方便清除和重绘
 let allData = []; // 存储从 CSV 加载的所有原始数据
 
+// --- 新增：类别与图标的映射字典 ---
+function getCategoryIcon(categories) {
+    if (!categories) return 'fa-utensils'; // 默认刀叉图标
+    
+    const cat = categories.toLowerCase();
+    if (cat.includes('coffee') || cat.includes('tea')) return 'fa-mug-hot';
+    if (cat.includes('pizza')) return 'fa-pizza-slice';
+    if (cat.includes('burger') || cat.includes('fast food')) return 'fa-burger';
+    if (cat.includes('chinese') || cat.includes('asian') || cat.includes('sushi')) return 'fa-utensils';
+    if (cat.includes('bar') || cat.includes('nightlife') || cat.includes('wine')) return 'fa-wine-glass';
+    if (cat.includes('dessert') || cat.includes('ice cream') || cat.includes('bakery')) return 'fa-ice-cream';
+    if (cat.includes('mexican') || cat.includes('tacos')) return 'fa-pepper-hot';
+    if (cat.includes('breakfast') || cat.includes('brunch')) return 'fa-egg';
+    if (cat.includes('seafood')) return 'fa-fish';
+    
+    return 'fa-utensils'; // 其他所有餐饮默认用刀叉
+}
+
 // 价格区间映射表：将数字转为友好的描述
 const priceMap = {
     "1": "人均 $10 以下 (平价)",
@@ -23,8 +41,8 @@ function initMap() {
         zoomControl: false // 关闭默认缩放按钮，稍后手动添加或根据需要调整
     }).setView([39.9526, -75.1652], 13);
 
-    // 添加暗色系底图 (CartoDB Dark Matter)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // 柔和彩色底图
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap contributors | © CARTO'
     }).addTo(map);
 
@@ -32,7 +50,13 @@ function initMap() {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     // 初始化图层组
-    markerLayer = L.layerGroup().addTo(map);
+    markerLayer = L.markerClusterGroup({
+        maxClusterRadius: 40, // 聚合半径（像素），数值越小聚合越不容易发生
+        disableClusteringAtZoom: 16 // 放大到16级时完全散开
+    });
+    
+    // 必须把聚合组加到地图上！
+    map.addLayer(markerLayer);
 }
 
 // --- 3. 加载数据 ---
@@ -57,32 +81,41 @@ function loadData() {
 }
 
 // --- 4. 渲染地图打点 ---
+// --- 修改：渲染地图打点 (支持自定义图标) ---
 function renderMarkers(data) {
     // 清除当前图层中的所有点
     markerLayer.clearLayers();
 
     data.forEach(d => {
-        // 计算半径：以评论数的平方根为基准，防止点太大
-        const radius = Math.sqrt(d.review_count) * 0.3 + 2;
-        
-        // 颜色映射：根据星级
-        let color = '#e74c3c'; // 默认红色 (<3星)
-        if (d.stars >= 4) color = '#2ecc71';      // 绿色 (>=4星)
-        else if (d.stars >= 3) color = '#f1c40f'; // 黄色 (3-3.5星)
+        // 1. 根据星级计算连续色：1星=红色，5星=绿色
+        const ratingScale = Math.max(0, Math.min((d.stars - 1) / 4, 1));
+        const iconBgColor = d3.interpolateRdYlGn(ratingScale);
+        const iconTextColor = ratingScale > 0.35 && ratingScale < 0.75 ? '#2f2f2f' : '#ffffff';
 
-        // 创建圆点标注
-        const marker = L.circleMarker([d.latitude, d.longitude], {
-            radius: radius,
-            fillColor: color,
-            color: "#fff",
-            weight: 0.5,
-            opacity: 1,
-            fillOpacity: 0.7
+        // 2. 决定图标形状 (根据类别)
+        const iconClass = getCategoryIcon(d.categories);
+
+        // 3. 决定图标大小 (根据评论数热度)
+        // 使用一个更温和的缩放比例，限制图标的最小和最大像素
+        const baseSize = 20; 
+        const extraSize = Math.min(Math.sqrt(d.review_count) * 0.4+2, 25); 
+        const totalSize = baseSize + extraSize;
+
+        // 4. 创建自定义 HTML 图标
+        const customIcon = L.divIcon({
+            className: 'custom-div-icon', // 基础样式类
+            html: `<div class="icon-wrapper" style="width: ${totalSize}px; height: ${totalSize}px; font-size: ${totalSize * 0.5}px; background-color: ${iconBgColor}; color: ${iconTextColor};">
+                       <i class="fa-solid ${iconClass}"></i>
+                   </div>`,
+            iconSize: [totalSize, totalSize],
+            iconAnchor: [totalSize / 2, totalSize / 2] // 确保图标中心对准坐标点
         });
+
+        // 5. 将点加到地图上
+        const marker = L.marker([d.latitude, d.longitude], { icon: customIcon });
 
         // 交互：点击显示详情
         marker.on('click', (e) => {
-            // 停止冒泡，防止触发地图点击事件
             L.DomEvent.stopPropagation(e);
             showDetails(d);
         });
@@ -97,27 +130,25 @@ function renderMarkers(data) {
 // --- 5. 更新详情面板 ---
 function showDetails(d) {
     const detailsDiv = document.getElementById('info-content');
-    
-    // 处理价格描述
     const priceText = priceMap[d.price_range] || "暂无价格信息";
+
+    // 将 categories 字符串转为可点击的标签块
+    const tagsHtml = d.categories.split(',').map(tag => 
+        `<span class="tag-block" onclick="searchByTag('${tag.trim()}')">${tag.trim()}</span>`
+    ).join('');
 
     detailsDiv.innerHTML = `
         <div class="biz-card">
             <h2>${d.name}</h2>
             <p><strong>📍 地址:</strong> ${d.address}</p>
             <p><strong>⭐ 评分:</strong> ${d.stars} / 5.0</p>
-            <p><strong>💬 评论数:</strong> ${d.review_count} 条</p>
-            <p><strong>🔥 累计签到:</strong> ${d.checkin_count}</p>
-            <p><strong>💰 消费水平:</strong> ${priceText}</p>
-            <div class="tag">标签: ${d.categories}</div>
+            <p><strong>💰 消费:</strong> ${priceText}</p>
+            <div class="tag-container">${tagsHtml}</div>
         </div>
     `;
-
-    // 如果侧边栏是关闭状态，点击点时自动打开（可选）
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar.classList.contains('collapsed')) {
-        toggleSidebar(true);
-    }
+    
+    // 如果侧边栏关着，就打开它
+    toggleSidebar(true);
 }
 
 // --- 6. 交互组件控制 ---
@@ -138,6 +169,12 @@ function toggleSidebar(shouldOpen) {
 
 // 初始化所有 UI 事件
 function initUIEvents() {
+    // 监听搜索框输入
+    document.getElementById('search-input').oninput = updateFilters;
+    
+    // 修改原有的价格筛选监听
+    document.getElementById('price-filter').onchange = updateFilters;
+
     // 侧边栏关闭按钮
     document.getElementById('close-sidebar').onclick = () => toggleSidebar(false);
     
@@ -163,6 +200,8 @@ function initUIEvents() {
     map.on('click', () => {
         legendModal.classList.add('hidden');
     });
+
+    initTagCloud(); // 初始化侧边栏标签云
 }
 
 // --- 7. 启动程序 ---
@@ -171,3 +210,54 @@ window.onload = () => {
     initUIEvents();
     loadData();
 };
+
+// --- 1. 新增：组合过滤逻辑 ---
+function updateFilters() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const priceVal = document.getElementById('price-filter').value;
+
+    const filtered = allData.filter(d => {
+        // 条件A：价格匹配
+        const matchesPrice = (priceVal === 'all' || d.price_range === priceVal);
+        
+        // 条件B：名字或标签匹配
+        const matchesSearch = (
+            d.name.toLowerCase().includes(searchTerm) || 
+            d.categories.toLowerCase().includes(searchTerm)
+        );
+
+        return matchesPrice && matchesSearch;
+    });
+
+    renderMarkers(filtered);
+}
+
+// --- 2. 新增：标签云初始化逻辑 ---
+function initTagCloud() {
+    // 定义一些想要展示的热门分类（你可以根据 CSV 里的实际情况调整）
+    const hotTags = ['Pizza', 'Chinese', 'Bars', 'Coffee', 'Mexican', 'Sandwiches', 'Seafood', 'Italian'];
+    const cloudContainer = document.getElementById('tag-cloud');
+    
+    hotTags.forEach(tag => {
+        const btn = document.createElement('div');
+        btn.className = 'tag-block';
+        btn.innerText = tag;
+        
+        // 点击标签逻辑：填入搜索框并触发过滤
+        btn.onclick = () => {
+            const input = document.getElementById('search-input');
+            input.value = tag;
+            updateFilters(); // 立即执行过滤
+        };
+        
+        cloudContainer.appendChild(btn);
+    });
+}
+
+// 提供给详情页标签使用的全局函数
+window.searchByTag = function(tag) {
+    const input = document.getElementById('search-input');
+    input.value = tag;
+    updateFilters();
+};
+
